@@ -1,0 +1,15 @@
+streamlit
+asyncio
+anthropic
+pandas
+plotly
+plotly-express
+uuid
+json
+re
+python-dotenv
+codecs
+mcp
+io
+typing
+logging
