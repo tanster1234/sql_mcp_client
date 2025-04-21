@@ -662,18 +662,23 @@ Here is the database schema you will use:
             st.info(f"Using connection ID: {st.session_state.conn_id[:8]}... (truncated for security)")
 
             # Get schema information for the prompt
-            relevant_schema = extract_relevant_tables(query, st.session_state.schema_info)
-            schema_text = self.format_schema_for_prompt(relevant_schema)
+            # relevant_schema = extract_relevant_tables(query, st.session_state.schema_info)
+            schema_text = self.format_schema_for_prompt(st.session_state.schema_info)
+            # print(relevant_schema)
+            print(schema_text)
             
             system_prompt = f"""You are a master PostgreSQL assistant with deep knowledge of SQL and database operations.
-            Before executing any query, first verify the table names and structure. 
-            If tables are missing, explain why the query cannot be executed.
-            You have access to detailed column comments that provide context about each field.
-            Use this context to generate more accurate and meaningful queries.
-            Your job is to use the tools at your disposal to execute SQL queries and provide the results to the user.
-            If a query fails, analyze the error and try a corrected version.
+            Before executing any query, you should use the provided schema context for the tables and fields.
+            The schema context has already been supplied and includes detailed column comments that provide context about each field and table comments about each table.
+            Do not re-fetch or verify table structures from the database. You already have the necessary schema information to execute the queries accurately.
 
-            IMPORTANT: When using the pg_query tool, you must ALWAYS provide both the query and conn_id parameters.
+            If tables are missing or if there are issues with the query, explain why the query cannot be executed based on the provided schema.
+            You are expected to leverage this context to generate more accurate and meaningful queries without querying the database for schema information.
+
+            Your job is to use the tools at your disposal to execute SQL queries and provide the results to the user.
+            If a query fails, analyze the error and try a corrected version, making use of the schema context.
+
+            IMPORTANT: When using the pg_query tool, you must always provide both the query and conn_id parameters.
             The current conn_id is: {st.session_state.conn_id}
             Always use this exact conn_id value when making pg_query calls.
             Never pass the connection_string to the pg_query tool.
@@ -933,29 +938,35 @@ Here is the database schema you will use:
 
     async def run_async(self):
         model, max_tokens = self.render_sidebar()
-        
+
         # Use SSE transport for PostgreSQL
         async with sse_client(url=self.pg_mcp_url) as streams:
             async with ClientSession(*streams) as session:
                 await session.initialize()
-                
-                # Connect to database if not already connected
+
+                # Ensure connection ID is set
                 if not st.session_state.conn_id:
                     if not await self.connect_to_database(session):
                         return
                 
-                # Process user query
+                # Only fetch schema if not already available
+                if not st.session_state.schema_info:
+                    # Fetch schema only if it's not in session_state
+                    with st.status("Fetching database schema..."):
+                        st.session_state.schema_info = await self.fetch_schema_info(session, st.session_state.conn_id)
+
+                # Process the user query
                 query = st.chat_input("Enter your natural language query...")
-                
+
                 if query:
                     st.session_state.sql_finished = False
                     await self.process_query(
-                        session, 
-                        query, 
-                        model=model, 
+                        session,
+                        query,
+                        model=model,
                         max_tokens=max_tokens
                     )
-                
+
                 if st.session_state.get("sql_finished"):
                     with st.expander("📊 AI-Generated Visualizations"):
                         await self.generate_visualizations(model)
