@@ -46,7 +46,7 @@ class PostgreSQLAssistantApp:
         # Load environment variables
         dotenv.load_dotenv()
         self.db_url = os.getenv('DATABASE_URL')
-        self.pg_mcp_url = os.getenv('PG_MCP_URL', 'https://159d-104-13-14-137.ngrok-free.app/sse')
+        self.pg_mcp_url = os.getenv('PG_MCP_URL', 'https://81cd-104-13-14-137.ngrok-free.app/sse')
         self.anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
 
         if not self.anthropic_api_key:
